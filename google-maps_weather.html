@@ -6,134 +6,135 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="css/style.css">
+    <script src="js/jquery-3.0.0.min.js"></script>
 
     <title>onlinico_v3</title>
+</head>
 
-    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js">
-    </script>
+<script type="text/javascript" src="https://maps.googleapis.com/maps/api/js">
+</script>
+<script>
+    var map;
+    var geoJSON;
+    var request;
+    var latitude;
+    var longitude;
+    var drawIcons;
 
+    var openWeatherMapKey = "e2819be4068341139cbfbc60d9e6b647";
 
-    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js">
-    </script>
-    <script>
-        var map;
-        var geoJSON;
-        var request;
-        var gettingData = false;
-        var latitude;
-        var longitude;
+    function initialize() {
+        var mapOptions = {
+            zoom: 4,
+            center: new google.maps.LatLng(49, 33)
+        };
+        map = new google.maps.Map(document.getElementById('map'),
+            mapOptions);
 
-        var openWeatherMapKey = "e2819be4068341139cbfbc60d9e6b647";
+        google.maps.event.addListener(map, 'idle', getWeather);
 
-        function initialize() {
-            var mapOptions = {
-                zoom: 4,
-                center: new google.maps.LatLng(49, 33)
-            };
-            map = new google.maps.Map(document.getElementById('map'),
-                mapOptions);
+        drawIcons = function (weather) {
+            map.data.addGeoJson(geoJSON);
 
-            google.maps.event.addListener(map, 'idle', getWeather);
+        };
+        map.data.addListener('mouseover', function (event) {
+            infowindow.setContent(
+                "<img src=" + event.feature.getProperty("icon") + ">" + "<br /><strong>" + event.feature.getProperty("city") + "</strong>" + "<br />" + event.feature.getProperty("temperature") + "&deg;C" + "<br />" + event.feature.getProperty("pressure") + " hPa" + "<br />" + event.feature.getProperty("humidity") + " %" + "<br />" + event.feature.getProperty("weather")
+            );
 
-            map.data.addListener('click', function (event) {
-                infowindow.setContent(
-                    "<img src=" + event.feature.getProperty("icon") + ">" + "<br /><strong>" + event.feature.getProperty("city") + "</strong>" + "<br />" + event.feature.getProperty("temperature") + "&deg;C" + "<br />" + event.feature.getProperty("pressure") + " hPa" + "<br />" + event.feature.getProperty("humidity") + " %" + "<br />" + event.feature.getProperty("weather")
-                );
-
-                infowindow.setOptions({
-                    position: {
-                        lat: event.latLng.lat(),
-                        lng: event.latLng.lng()
-                    },
-                    pixelOffset: {
-                        width: 0,
-                        height: -15
-                    }
-                });
-                infowindow.open(map);
+            infowindow.setOptions({
+                position: {
+                    lat: event.latLng.lat(),
+                    lng: event.latLng.lng()
+                },
+                pixelOffset: {
+                    width: 0,
+                    height: -15
+                }
             });
+            infowindow.open(map);
+        });
 
-            google.maps.event.addListener(map, "click", function (event) {
-                latitude = event.latLng.lat();
-                longitude = event.latLng.lng();
-                getWeather();
-            });
+        google.maps.event.addListener(map, "click", function (event) {
+            latitude = event.latLng.lat();
+            longitude = event.latLng.lng();
+            getWeather();
+        });
+    }
+
+    /* var getWeather = function () {
+         var lat = latitude;
+         var long = longitude;
+         var requestString = "http://api.openweathermap.org/data/2.5/weather?lat=" + lat + "&lon=" + long + "&units=metric&" + map.getZoom() + "&cluster=yes&format=json" + "&APPID=" + openWeatherMapKey;
+         request = new XMLHttpRequest();
+         request.onload = proccessResults;
+         request.open("get", requestString, true);
+         request.send();
+     };*/
+
+    var getWeather = function () {
+        var lat = latitude;
+        var long = longitude;
+        var url = "http://api.openweathermap.org/data/2.5/weather?lat=" + lat + "&lon=" + long + "&units=metric&" + map.getZoom() + "&cluster=yes&format=json" + "&APPID=" + openWeatherMapKey;
+        $.getJSON(url, proccessResults);
+    }
+
+    var proccessResults = function (data) {
+        console.log(data);
+        if (data) {
+            resetData();
+            geoJSON.features.push(jsonToGeoJson(data));
+            drawIcons(data)
         }
 
-        var getWeather = function () {
-            gettingData = true;
-            var lat = latitude;
-            var long = longitude;
-            var requestString = "http://api.openweathermap.org/data/2.5/weather?lat=" + lat + "&lon=" + long + "&units=metric&" + map.getZoom() + "&cluster=yes&format=json" + "&APPID=" + openWeatherMapKey;
-            request = new XMLHttpRequest();
-            request.onload = proccessResults;
-            request.open("get", requestString, true);
-            request.send();
-        };
+    };
 
-        var proccessResults = function () {
-            console.log(this);
-            var results = JSON.parse(this.responseText);
-            if (results.weather.length > 0) {
-                resetData();
-                geoJSON.features.push(jsonToGeoJson(results));
-                drawIcons(results)
+    var infowindow = new google.maps.InfoWindow();
+    var jsonToGeoJson = function (weatherItem) {
+        var feature = {
+            type: "Feature",
+            properties: {
+                city: weatherItem.name,
+                weather: weatherItem.weather[0].main,
+                temperature: weatherItem.main.temp,
+                min: weatherItem.main.temp_min,
+                max: weatherItem.main.temp_max,
+                humidity: weatherItem.main.humidity,
+                pressure: weatherItem.main.pressure,
+                windSpeed: weatherItem.wind.speed,
+                windDegrees: weatherItem.wind.deg,
+                windGust: weatherItem.wind.gust,
+                icon: "http://openweathermap.org/img/w/" + weatherItem.weather[0].icon + ".png",
+                coordinates: [weatherItem.coord.lon, weatherItem.coord.lat]
+            },
+            geometry: {
+                type: "Point",
+                coordinates: [weatherItem.coord.lon, weatherItem.coord.lat]
             }
-
         };
-        var infowindow = new google.maps.InfoWindow();
-        var jsonToGeoJson = function (weatherItem) {
-            var feature = {
-                type: "Feature",
-                properties: {
-                    city: weatherItem.name,
-                    weather: weatherItem.weather[0].main,
-                    temperature: weatherItem.main.temp,
-                    min: weatherItem.main.temp_min,
-                    max: weatherItem.main.temp_max,
-                    humidity: weatherItem.main.humidity,
-                    pressure: weatherItem.main.pressure,
-                    windSpeed: weatherItem.wind.speed,
-                    windDegrees: weatherItem.wind.deg,
-                    windGust: weatherItem.wind.gust,
-                    icon: "http://openweathermap.org/img/w/" + weatherItem.weather[0].icon + ".png",
-                    coordinates: [weatherItem.coord.lon, weatherItem.coord.lat]
-                },
-                geometry: {
-                    type: "Point",
-                    coordinates: [weatherItem.coord.lon, weatherItem.coord.lat]
+
+        map.data.setStyle(function (feature) {
+            return {
+                icon: {
+                    url: feature.getProperty('icon'),
+                    anchor: new google.maps.Point(25, 25),
                 }
             };
+        });
+        return feature;
+    };
 
-            map.data.setStyle(function (feature) {
-                return {
-                    icon: {
-                        url: feature.getProperty('icon'),
-                        anchor: new google.maps.Point(25, 25)
-                    }
-                };
-            });
-            return feature;
+    var resetData = function () {
+        geoJSON = {
+            type: "FeatureCollection",
+            features: []
         };
-
-        var drawIcons = function (weather) {
-            console.log(weather, 'myjson');
-            map.data.addGeoJson(geoJSON);
-            gettingData = false;
-        };
-
-        var resetData = function () {
-            geoJSON = {
-                type: "FeatureCollection",
-                features: []
-            };
-            map.data.forEach(function (feature) {
-                map.data.remove(feature);
-            });
-        };
-        google.maps.event.addDomListener(window, 'load', initialize);
-    </script>
-</head>
+        map.data.forEach(function (feature) {
+            map.data.remove(feature);
+        });
+    };
+    google.maps.event.addDomListener(window, 'load', initialize);
+</script>
 
 <body>
 
